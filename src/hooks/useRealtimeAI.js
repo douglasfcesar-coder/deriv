@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { calcMetrics, buildPrompt } from '../lib/analytics'
 
-// Triggers that cause a real-time re-analysis
 const TRIGGERS = [
   { id: 'loss_streak_3', check: (m) => m.maxLossStreak >= 3, cooldown: 5 },
   { id: 'loss_streak_5', check: (m) => m.maxLossStreak >= 5, cooldown: 10 },
@@ -12,16 +11,15 @@ const TRIGGERS = [
 
 async function fetchAISuggestion(metrics, trigger) {
   const contextMap = {
-    loss_streak_3: 'O robô acabou de completar 3 perdas consecutivas.',
-    loss_streak_5: 'ALERTA: 5 perdas seguidas detectadas. Situação crítica.',
-    winrate_drop:  'Win rate caiu abaixo de 40%. Analisar urgente.',
-    profit_neg:    'Prejuízo acumulado passou de $20. Avaliar estratégia.',
-    every_10:      `Análise de rotina após ${metrics.total} operações.`,
+    loss_streak_3: `O Comet V4.1 acumulou 3 perdas consecutivas no R_10. Verifique se o Martingale já foi ativado e se a Distância Mínima entre as EMAs está filtrando corretamente.`,
+    loss_streak_5: `ALERTA CRÍTICO: 5 perdas seguidas no Comet V4.1. O Martingale pode estar multiplicando o stake perigosamente. Avalie pausar o robô.`,
+    winrate_drop:  `Win rate abaixo de 40% no Comet V4.1. As 6 EMAs e 6 SMAs podem estar gerando sinais conflitantes em mercado lateral no R_10.`,
+    profit_neg:    `Prejuízo acumulado superou $20 no Comet V4.1. Com stake inicial de $0,36 e take profit de $1,00, a recuperação exige muitas operações vencedoras.`,
+    every_10:      `Checkpoint automático após ${metrics.total} operações do Comet V4.1 no R_10.`,
   }
-  const context = contextMap[trigger] || 'Análise automática.'
 
   const prompt = buildPrompt(metrics) +
-    `\n\nContexto do gatilho: ${context}\n\nGere UMA sugestão urgente e específica para este momento.\nJSON: {"suggestions":[{"title":"...","body":"...","priority":"alta|media|baixa","chips":["..."],"trigger":"${trigger}"}]}`
+    `\n\nContexto do gatilho automático: ${contextMap[trigger] || 'Análise automática.'}\n\nGere UMA sugestão urgente e muito específica para o Comet V4.1 neste momento. Mencione parâmetros concretos do robô.\nJSON: {"suggestions":[{"title":"...","body":"...","priority":"alta|media|baixa","chips":["..."],"trigger":"${trigger}"}]}`
 
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -39,9 +37,9 @@ async function fetchAISuggestion(metrics, trigger) {
 }
 
 export function useRealtimeAI(trades) {
-  const [feed, setFeed]       = useState([])   // live suggestion feed
+  const [feed, setFeed]           = useState([])
   const [analyzing, setAnalyzing] = useState(false)
-  const firedAt = useRef({})  // trigger_id -> last tradeCount when it fired
+  const firedAt   = useRef({})
   const prevCount = useRef(0)
 
   const addToFeed = useCallback((suggestion, triggerLabel) => {
@@ -51,7 +49,7 @@ export function useRealtimeAI(trades) {
       ts: new Date(),
       triggerLabel,
       isNew: true,
-    }, ...prev.slice(0, 19)])  // keep last 20
+    }, ...prev.slice(0, 19)])
   }, [])
 
   useEffect(() => {
@@ -63,23 +61,18 @@ export function useRealtimeAI(trades) {
 
     for (const trigger of TRIGGERS) {
       const lastFired = firedAt.current[trigger.id] || 0
-      const opsSince = trades.length - lastFired
+      const opsSince  = trades.length - lastFired
 
       if (trigger.check(metrics) && opsSince >= trigger.cooldown) {
         firedAt.current[trigger.id] = trades.length
         setAnalyzing(true)
 
         fetchAISuggestion(metrics, trigger.id)
-          .then(suggestion => {
-            if (suggestion) addToFeed(suggestion, trigger.id)
-          })
-          .catch(() => {
-            // fallback inline suggestion
-            addToFeed(getFallback(metrics, trigger.id), trigger.id)
-          })
+          .then(suggestion => { if (suggestion) addToFeed(suggestion, trigger.id) })
+          .catch(() => addToFeed(getFallback(metrics, trigger.id), trigger.id))
           .finally(() => setAnalyzing(false))
 
-        break // one trigger at a time
+        break
       }
     }
   }, [trades.length])
@@ -89,11 +82,36 @@ export function useRealtimeAI(trades) {
 
 function getFallback(m, triggerId) {
   const map = {
-    loss_streak_3: { title: 'Pausa recomendada', body: '3 perdas seguidas detectadas. Considere pausar o robô por 15 minutos e revisar o mercado antes de continuar.', priority: 'media', chips: ['pausa', 'sequência'] },
-    loss_streak_5: { title: 'Stop imediato recomendado', body: 'Sequência de 5 perdas. O Deriv Bot possui o bloco "Condição de parada" — configure-o para parar após 5 perdas e proteger seu saldo.', priority: 'alta', chips: ['stop', 'proteção', 'urgente'] },
-    winrate_drop:  { title: 'Win rate crítico', body: `${m.winRate}% de acerto com Martingale é insustentável. Reduza o stake base para o mínimo e avalie trocar de dígito par/ímpar.`, priority: 'alta', chips: ['win rate', 'stake'] },
-    profit_neg:    { title: 'Limite de perda atingido', body: 'Prejuízo acumulado relevante. Considere encerrar o robô por hoje e revisar a lógica amanhã com mente fria.', priority: 'alta', chips: ['drawdown', 'gestão'] },
-    every_10:      { title: `Check de rota — ${m.total} ops`, body: `Win rate ${m.winRate}%, lucro $${m.profit.toFixed(2)}. ${m.profitFactor >= 1 ? 'Robô operando dentro do esperado.' : 'Fator de lucro abaixo de 1 — revise a estratégia.'}`, priority: m.profitFactor >= 1 ? 'baixa' : 'media', chips: ['checkpoint', 'análise'] },
+    loss_streak_3: {
+      title: 'Verificar Distância Mínima',
+      body: '3 perdas seguidas no Comet V4.1. Em mercado lateral no R_10, as EMAs ficam próximas — aumente o parâmetro Distância Mínima para evitar entradas em sinais fracos.',
+      priority: 'media',
+      chips: ['Distância Mínima', 'EMA', 'R_10'],
+    },
+    loss_streak_5: {
+      title: 'Pausar Martingale urgente',
+      body: '5 perdas seguidas — com stake inicial $0,36 e Martingale ativo, o stake pode já estar multiplicado. Verifique o Limite De Aposta atual e considere pausar o robô para revisão.',
+      priority: 'alta',
+      chips: ['Martingale', 'Limite De Aposta', 'pausa'],
+    },
+    winrate_drop: {
+      title: 'EMAs em conflito — mercado lateral',
+      body: `Win rate ${m.winRate}% indica que as 6 EMAs e 6 SMAs do Comet estão gerando sinais contraditórios. Considere aumentar o intervalo de vela de 60s para 120s ou aumentar a Distância Mínima.`,
+      priority: 'alta',
+      chips: ['EMA', 'SMA', 'intervalo de vela', 'mercado lateral'],
+    },
+    profit_neg: {
+      title: 'Take Profit muito baixo para recuperar',
+      body: `Com $${Math.abs(m.profit).toFixed(2)} de prejuízo e take profit de $1,00, serão necessárias muitas operações para recuperar. Avalie aumentar o Lucro Esperado ou reduzir o Limite de Perda para proteger o saldo restante.`,
+      priority: 'alta',
+      chips: ['Take Profit', 'Limite de Perda', 'gestão'],
+    },
+    every_10: {
+      title: `Checkpoint — ${m.total} operações`,
+      body: `Comet V4.1: win rate ${m.winRate}%, lucro $${m.profit.toFixed(2)}, fator de lucro ${m.profitFactor}x. ${m.profitFactor >= 1 ? 'Robô operando dentro do esperado no R_10.' : 'Fator abaixo de 1 — as perdas superam os ganhos. Revise a Distância Mínima e o número de derrotas para ativar o Martingale.'}`,
+      priority: m.profitFactor >= 1 ? 'baixa' : 'media',
+      chips: ['checkpoint', 'fator de lucro', 'R_10'],
+    },
   }
-  return map[triggerId] || { title: 'Análise automática', body: 'Monitoramento ativo.', priority: 'baixa', chips: [] }
+  return map[triggerId] || { title: 'Análise automática', body: 'Monitoramento ativo no Comet V4.1.', priority: 'baixa', chips: [] }
 }

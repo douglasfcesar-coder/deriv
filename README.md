@@ -122,6 +122,3 @@ deriv-monitor/
 - Deriv WebSocket API v3
 - Claude API (Anthropic) para sugestões
 - Telegram Bot API para alertas
-"# deriv" ?? 
-"# deriv" ?? 
-"# deriv" ?? 
