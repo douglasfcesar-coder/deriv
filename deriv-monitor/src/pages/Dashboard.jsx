@@ -49,10 +49,14 @@ export default function Dashboard({ account, balance, trades, wsStatus, onLogout
         </div>
 
         <div style={styles.accountInfo}>
-          <div style={styles.accountId}>{account?.loginid}</div>
-          <div style={styles.accountBal}>{typeof balance === 'number' ? fmt(balance, account?.currency).replace('+','') : '—'}</div>
-          <div style={{ ...styles.wsDot, background: wsStatus === 'connected' ? 'var(--green)' : wsStatus === 'connecting' ? 'var(--amber)' : '#555' }}>
-            <span style={styles.wsDotInner} />
+          <div style={styles.accountId}>{account?.loginid || '—'}</div>
+          <div style={styles.accountBal}>
+            {balance != null
+              ? balance.toLocaleString('pt-BR', { style: 'currency', currency: account?.currency || 'USD', minimumFractionDigits: 2 })
+              : wsStatus === 'connecting' ? 'Conectando...' : '—'}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: wsStatus === 'connected' ? 'var(--green)' : wsStatus === 'connecting' ? 'var(--amber)' : '#555', animation: 'pulse 2s infinite', flexShrink: 0 }} />
             <span style={{ fontSize: 11, color: 'var(--muted)' }}>
               {wsStatus === 'connected' ? 'ao vivo' : wsStatus === 'connecting' ? 'conectando...' : 'demo'}
             </span>
