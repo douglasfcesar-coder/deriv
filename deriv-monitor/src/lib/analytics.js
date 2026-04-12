@@ -54,7 +54,7 @@ LÓGICA DE ENTRADA:
 - Usa 6 EMAs e 6 SMAs para identificar tendência
 - Analisa direção da vela atual (verde = alta / vermelha = baixa)
 - Analisa tique-taque em tempo real (rise/fall) como confirmação de entrada
-- Usa Distância Mínima entre EMAs como filtro — só entra quando médias estão suficientemente separadas
+- Usa Distância Mínima entre EMAs como filtro — valor atual configurado: 0.0085 (escala compatível com os ticks do R_10 que variam entre 0,001 e 0,01). Só entra quando as EMAs estão separadas por pelo menos esse valor, filtrando mercado lateral
 - Variáveis Libera Compra Call e Libera Compra Put controlam autorização de entrada
 - Sistema de Derrota Virtual: simula operações sem dinheiro real para validar o sinal antes de entrar com dinheiro
 
