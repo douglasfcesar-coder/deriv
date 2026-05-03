@@ -1,7 +1,6 @@
 {
   "name": "deriv-monitor",
-  "version": "1.0.0",
-  "description": "Monitor de robô Deriv com sugestões de IA e alertas no Telegram",
+  "version": "2.0.0",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
